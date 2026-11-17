@@ -34,7 +34,7 @@ app.use((req, res) => {
   });
 });
 
-// Error handler: keeps the `{ error: { code, message } }` contract for every failure.
+// Error handler: keeps the `{ error: { code, message, details? } }` contract for every failure.
 app.use((err, _req, res, _next) => {
   const status = Number(err.status ?? err.statusCode ?? 500);
   // Client errors without an explicit code (e.g. malformed JSON) are BAD_REQUEST, not INTERNAL_ERROR.
@@ -42,12 +42,15 @@ app.use((err, _req, res, _next) => {
   const code =
     typeof err.code === "string" && /^[A-Z][A-Z0-9_]*$/.test(err.code) ? err.code : fallbackCode;
   if (status >= 500) console.error("[api] unhandled error", err);
-  res.status(status).json({
-    error: {
-      code,
-      message: status >= 500 ? "Internal server error" : err.message,
-    },
-  });
+  const error = {
+    code,
+    message: status >= 500 ? "Internal server error" : err.message,
+  };
+  // `details` is only exposed for client errors, and only when the thrower provided it.
+  if (status < 500 && err.details && typeof err.details === "object" && !Array.isArray(err.details)) {
+    error.details = err.details;
+  }
+  res.status(status).json({ error });
 });
 
 app.listen(config.port, () => {

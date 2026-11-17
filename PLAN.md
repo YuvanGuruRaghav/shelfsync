@@ -116,7 +116,9 @@ In ONE transaction:
 ### 4.2 Reservations (rule 2, precise)
 
 - `PUT /api/cart/items {product_id, qty}` sets the line quantity (set semantics, safe to retry).
-  Compute `delta = newQty - oldQty` and run, in a transaction:
+  Compute `delta = newQty - activeQty`, where `activeQty` is the qty of the cart's ACTIVE reservation for
+  that product (0 when there is none) — **not** `cart_items.qty`, because a hold can expire while the cart
+  line stays; using the stale line qty would skip re-reserving the stock. Then run, in a transaction:
   `UPDATE store_stock SET reserved=reserved+$delta WHERE product_id=$p AND store_id=$s AND stock-reserved>=$delta`
   If 0 rows are updated, return 409 `INSUFFICIENT_STOCK` with the current available count.
   A negative delta releases stock (always succeeds).
@@ -173,9 +175,11 @@ Consumers:
 
 ## 6. API contract
 
-All JSON. Errors: `{ "error": { "code": "OUT_OF_STOCK", "message": "..." } }` with sensible HTTP status.
-Cart and checkout require header `X-Session-Id` (client-generated UUID). Admin routes require `X-Admin-Key`
-(must equal env `ADMIN_KEY`).
+All JSON. Errors: `{ "error": { "code": "OUT_OF_STOCK", "message": "...", "details": {...} } }` with sensible
+HTTP status. `details` is optional: only for status < 500, and only when the endpoint supplies it
+(e.g. `INSUFFICIENT_STOCK` → `{ available }`, `CART_STORE_MISMATCH` → `{ store_id }`).
+Cart routes require header `X-Session-Id`: 8–64 characters of `A-Z a-z 0-9 -`, otherwise
+`400 MISSING_SESSION`. Admin routes require `X-Admin-Key` (must equal env `ADMIN_KEY`).
 
 ### Public
 
@@ -187,10 +191,10 @@ Cart and checkout require header `X-Session-Id` (client-generated UUID). Admin r
 | GET | `/api/products?store_id&category&min_price&max_price&limit&offset` | browse: `{ items, total, limit, offset }` |
 | GET | `/api/products/:id?store_id` | product + `available` + `low` for the store + `availability` per store |
 | GET | `/api/search?q&store_id&category&min_price&max_price&limit` | `{ items }` — same item shape plus `score` |
-| GET | `/api/cart` | cart with lines, line prices, total, `expires_at` of earliest hold |
-| PUT | `/api/cart/items` | body `{ product_id, qty, store_id }`; `qty` 0 removes. 409 `INSUFFICIENT_STOCK` / `CART_STORE_MISMATCH` |
-| DELETE | `/api/cart/items/:product_id` | remove one line |
-| DELETE | `/api/cart` | clear cart (used when switching city) |
+| GET | `/api/cart` | cart body (below); `expires_at` of the earliest ACTIVE hold |
+| PUT | `/api/cart/items` | body `{ product_id, qty, store_id }`; `qty` 0..20, 0 removes. 409 `INSUFFICIENT_STOCK` / `CART_STORE_MISMATCH` |
+| DELETE | `/api/cart/items/:product_id` | remove one line (same as `PUT` with `qty: 0`, idempotent) |
+| DELETE | `/api/cart` | release every hold and delete the cart (used when switching city); idempotent |
 | POST | `/api/checkout` | body `{ customer:{name,email,phone}, fulfilment }`, optional `Idempotency-Key` header. Returns the order. 409 `OUT_OF_STOCK` |
 | GET | `/api/orders/:id` | order + items + status |
 | GET | `/api/stream/stock?store_id` | SSE. Event `stock`, data `{ product_id, store_id, available, low }` |
@@ -210,6 +214,23 @@ Cart and checkout require header `X-Session-Id` (client-generated UUID). Admin r
   sort cheapest first.
 - Errors: `400 BAD_REQUEST` (bad query params), `400 INVALID_STORE` (unknown `store_id`),
   `404 PRODUCT_NOT_FOUND`.
+
+**Cart body** (`GET /api/cart` and every cart mutation):
+
+```
+{
+  store_id, city,
+  items: [{ product_id, name, price, qty, line_total, held, available }],
+  total, expires_at
+}
+```
+
+- A session with no cart gets `{ store_id: null, city: null, items: [], total: 0, expires_at: null }` and
+  no cart row is created.
+- `held` is true when the line has an ACTIVE reservation; `available = stock - reserved` at the cart's store.
+- `expires_at` is the earliest ACTIVE hold, or `null`.
+- `PUT /api/cart/items` is set semantics: `delta = qty - ACTIVE reservation qty` (4.2), so retries are safe.
+- `DELETE /api/cart` returns the empty body above.
 
 ### Admin (`X-Admin-Key`)
 
@@ -275,13 +296,16 @@ search test cases (bluetooth earphones, budget items). Open alerts created for r
 ```
 shelfsync/
   frontend/  (app/, components/, lib/)
-  backend/src/ server.js, config.js, routes/, services/, providers/{publisher,search}/,
-               consumers/, workers/{outboxRelay,reservationExpiry}.js, db/{pool.js,schema.sql,migrate.js,seed.js}
+  backend/src/ server.js, config.js, routes/, consumers/,
+               services/{catalogService,searchService,cartService,inventoryService}.js,
+               providers/{publisher,search}/, workers/{outboxRelay,reservationExpiry}.js,
+               db/{pool.js,schema.sql,migrate.js,seed.js}
+  backend/scripts/test-cart.js
   .env.example, .gitignore, README.md, PLAN.md
 ```
 
 `server.js` mounts routes, starts both workers and registers consumers on boot.
-Backend scripts: `dev`, `start`, `migrate`, `seed`, `db:reset`.
+Backend scripts: `dev`, `start`, `migrate`, `seed`, `db:reset`, `test:cart`.
 
 ## 11. Build order (one agent prompt per step)
 
@@ -339,4 +363,5 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
 - [x] Step 3b: Corrections (seed guard + open alerts, CORS/404/error middleware, health payload,
       publisher `subscribe` for log + Kafka, config/env for Kafka SASL, PLAN/docs cleanup)
 - [x] Step 4: Catalog + search endpoints (`stores`, `categories`, `products`, `search`)
-- [ ] Step 5 onward: not started
+- [x] Step 5: Cart + reservations (4.2)
+- [ ] Step 6 onward: not started
