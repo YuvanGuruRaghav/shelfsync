@@ -94,27 +94,40 @@ export async function getCart(sessionId) {
 /**
  * Get the session's cart (creating it if needed) and lock its row. A concurrent
  * first-time insert blocks on the unique session_id index, then reuses the row.
+ *
+ * The row can also disappear between the conflicting INSERT and the locking SELECT:
+ * a concurrent DELETE /api/cart (or checkout) removes the cart and commits while we
+ * are waiting for it. There is nothing to lock then, so retry the insert/lock pair.
  */
+const CART_LOCK_ATTEMPTS = 3;
+
 async function lockOrCreateCart(client, sessionId, storeId) {
-  const inserted = await client.query(
-    `INSERT INTO carts (session_id, store_id) VALUES ($1, $2)
-     ON CONFLICT (session_id) DO NOTHING
-     RETURNING id, store_id`,
-    [sessionId, storeId],
-  );
-  if (inserted.rows.length > 0) {
-    const { rows } = await client.query("SELECT id, store_id FROM carts WHERE id = $1 FOR UPDATE", [
-      inserted.rows[0].id,
-    ]);
-    return rows[0];
+  for (let attempt = 1; attempt <= CART_LOCK_ATTEMPTS; attempt += 1) {
+    const inserted = await client.query(
+      `INSERT INTO carts (session_id, store_id) VALUES ($1, $2)
+       ON CONFLICT (session_id) DO NOTHING
+       RETURNING id, store_id`,
+      [sessionId, storeId],
+    );
+
+    if (inserted.rows[0]) {
+      const { rows } = await client.query("SELECT id, store_id FROM carts WHERE id = $1 FOR UPDATE", [
+        inserted.rows[0].id,
+      ]);
+      if (rows[0]) return rows[0];
+      continue;
+    }
+
+    const { rows } = await client.query(
+      "SELECT id, store_id FROM carts WHERE session_id = $1 FOR UPDATE",
+      [sessionId],
+    );
+    if (rows[0]) return rows[0];
   }
 
-  const { rows } = await client.query(
-    "SELECT id, store_id FROM carts WHERE session_id = $1 FOR UPDATE",
-    [sessionId],
+  throw new Error(
+    `could not lock or create the cart for session ${sessionId} after ${CART_LOCK_ATTEMPTS} attempts`,
   );
-  if (!rows[0]) throw new Error(`cart for session ${sessionId} vanished while locking`);
-  return rows[0];
 }
 
 /**

@@ -37,10 +37,14 @@ app.use((req, res) => {
 // Error handler: keeps the `{ error: { code, message, details? } }` contract for every failure.
 app.use((err, _req, res, _next) => {
   const status = Number(err.status ?? err.statusCode ?? 500);
-  // Client errors without an explicit code (e.g. malformed JSON) are BAD_REQUEST, not INTERNAL_ERROR.
-  const fallbackCode = status >= 500 ? "INTERNAL_ERROR" : "BAD_REQUEST";
+  // Server errors never leak an internal code; client errors keep theirs (or BAD_REQUEST for
+  // framework errors such as malformed JSON).
   const code =
-    typeof err.code === "string" && /^[A-Z][A-Z0-9_]*$/.test(err.code) ? err.code : fallbackCode;
+    status >= 500
+      ? "INTERNAL_ERROR"
+      : typeof err.code === "string" && /^[A-Z][A-Z0-9_]*$/.test(err.code)
+        ? err.code
+        : "BAD_REQUEST";
   if (status >= 500) console.error("[api] unhandled error", err);
   const error = {
     code,

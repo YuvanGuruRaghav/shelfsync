@@ -127,8 +127,8 @@ async function inventoryEventsSince(id) {
   return rows.map((row) => row.reason);
 }
 
-/** Test 9: the invariant that must hold after every scenario. */
-async function invariant(label) {
+/** The invariant that must hold after every scenario. */
+async function invariantState() {
   const { rows } = await pool.query(
     `SELECT ss.stock, ss.reserved,
             COALESCE((
@@ -140,18 +140,23 @@ async function invariant(label) {
     [productId, storeId],
   );
   const row = rows[0];
-  const inRange = row.reserved >= 0 && row.reserved <= row.stock;
-  check(
-    `invariant ${label}: 0 <= reserved <= stock`,
-    inRange,
-    `stock=${row.stock} reserved=${row.reserved}`,
-  );
+  return {
+    inRange: row.reserved >= 0 && row.reserved <= row.stock,
+    matches: row.reserved === row.active_qty,
+    rangeDetail: `stock=${row.stock} reserved=${row.reserved}`,
+    sumDetail: `reserved=${row.reserved} active=${row.active_qty}`,
+  };
+}
+
+async function invariant(label) {
+  const state = await invariantState();
+  check(`invariant ${label}: 0 <= reserved <= stock`, state.inRange, state.rangeDetail);
   check(
     `invariant ${label}: reserved = SUM(ACTIVE reservation qty)`,
-    row.reserved === row.active_qty,
-    `reserved=${row.reserved} active=${row.active_qty}`,
+    state.matches,
+    state.sumDetail,
   );
-  return inRange && row.reserved === row.active_qty;
+  return state.inRange && state.matches;
 }
 
 // ------------------------------------------------------------------- checks
@@ -379,6 +384,84 @@ async function test8Outbox() {
   await api("DELETE", "/api/cart", { sessionId: s });
 }
 
+async function test9DeleteRace() {
+  section("Test 9: DELETE /api/cart races PUT qty=1, 20 rounds");
+  await resetRow(5);
+  const ROUNDS = 20;
+  const unexpected = [];
+  const roundFailures = [];
+
+  for (let round = 1; round <= ROUNDS; round += 1) {
+    const s = session();
+    // Start from a committed cart so the PUT's INSERT conflicts and the DELETE can remove
+    // the row between that INSERT and the locking SELECT — the retry path.
+    await putItem(s, 1);
+
+    const [cleared, held] = await Promise.all([
+      api("DELETE", "/api/cart", { sessionId: s }),
+      putItem(s, 1),
+    ]);
+
+    for (const res of [cleared, held]) {
+      if (res.status >= 500 || res.status !== 200) {
+        unexpected.push(`round ${round}: ${res.status} ${JSON.stringify(res.body)}`);
+      }
+    }
+
+    const state = await invariantState();
+    if (!state.inRange || !state.matches) {
+      roundFailures.push(`round ${round}: ${state.rangeDetail} ${state.sumDetail}`);
+    }
+
+    await api("DELETE", "/api/cart", { sessionId: s });
+  }
+
+  check(
+    `no round returned a 5xx or unexpected status over ${ROUNDS} rounds`,
+    unexpected.length === 0,
+    unexpected.slice(0, 3).join(" | "),
+  );
+  check(
+    `invariant held after each of the ${ROUNDS} rounds`,
+    roundFailures.length === 0,
+    roundFailures.slice(0, 3).join(" | "),
+  );
+  await invariant("test 9");
+}
+
+async function test10BooleanFields() {
+  section("Test 10: boolean ids/quantities are rejected");
+  const s = session();
+  const base = { product_id: productId, qty: 1, store_id: storeId };
+
+  const qtyTrue = await api("PUT", "/api/cart/items", { sessionId: s, body: { ...base, qty: true } });
+  check(
+    "qty: true -> 400 BAD_REQUEST",
+    qtyTrue.status === 400 && errorCode(qtyTrue) === "BAD_REQUEST",
+    JSON.stringify(qtyTrue.body),
+  );
+
+  const productFalse = await api("PUT", "/api/cart/items", {
+    sessionId: s,
+    body: { ...base, product_id: false },
+  });
+  check(
+    "product_id: false -> 400 BAD_REQUEST",
+    productFalse.status === 400 && errorCode(productFalse) === "BAD_REQUEST",
+    JSON.stringify(productFalse.body),
+  );
+
+  const storeTrue = await api("PUT", "/api/cart/items", { sessionId: s, body: { ...base, store_id: true } });
+  check(
+    "store_id: true -> 400 BAD_REQUEST",
+    storeTrue.status === 400 && errorCode(storeTrue) === "BAD_REQUEST",
+    JSON.stringify(storeTrue.body),
+  );
+
+  check("rejected bodies created no cart and no hold", (await cartRows(s)) === 0 && (await reservedNow()) === 0);
+  await invariant("test 10");
+}
+
 // --------------------------------------------------------------------- main
 
 async function main() {
@@ -422,6 +505,8 @@ async function main() {
     await test6ClearCart();
     await test7Alerts();
     await test8Outbox();
+    await test9DeleteRace();
+    await test10BooleanFields();
   } finally {
     // Clean up: drop the test carts, restore the stock row and the original OPEN alert.
     for (const s of sessions) {

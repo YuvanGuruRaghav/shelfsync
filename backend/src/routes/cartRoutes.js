@@ -11,6 +11,8 @@ const router = Router();
 router.use("/cart", requireSession);
 
 function requiredInteger(raw, name, bounds) {
+  // JSON booleans coerce to 0/1 through Number(); ids and quantities must be numbers or numeric strings.
+  if (typeof raw === "boolean") throw badRequest(`${name} must be a number`);
   const value = parseInteger(raw, name, bounds);
   if (value === null) throw badRequest(`${name} is required`);
   return value;
