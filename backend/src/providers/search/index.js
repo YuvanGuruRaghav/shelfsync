@@ -2,8 +2,13 @@ import config from "../../config.js";
 import { pool } from "../../db/pool.js";
 
 /**
- * Search provider interface:
- *   search({ q, city, category, minPrice, maxPrice, limit }) => Promise<Product[]>
+ * Search provider interface (PLAN section 2.1):
+ *   search({ q, storeId, category, minPrice, maxPrice, limit }) => Promise<Item[]>
+ *   indexProduct(productId) => Promise<void>
+ *   removeProduct(productId) => Promise<void>
+ *
+ * Items are the browse shape plus `score`: { id, name, description, category,
+ * price, image_url, available, low, score }.
  *
  * SEARCH_PROVIDER=postgres   — pg_trgm fuzzy matching, city-aware ranking (default)
  * SEARCH_PROVIDER=opensearch — same interface, real OpenSearch once Aiven is provisioned
@@ -13,12 +18,14 @@ import { pool } from "../../db/pool.js";
 const TERM_ALIASES = {
   blutooth: "bluetooth",
   blootooth: "bluetooth",
+  bluetooth: "bluetooth",
   hedphone: "headphone",
   headfone: "headphone",
   headphone: "headphone",
   earfone: "earbuds",
   earphne: "earbuds",
   earbud: "earbuds",
+  earphones: "earphones",
   smartwtch: "smart watch",
   laptop: "laptop",
   tv: "monitor",
@@ -65,110 +72,125 @@ function parseQuery(q) {
   return { terms: [...new Set(terms)], priceSort };
 }
 
+/**
+ * Fuzzy match: similarity() works on the whole string, word_similarity() finds
+ * the best matching word inside a longer name, so "bluetoth" still hits
+ * "Noise-Cancelling Bluetooth Headphones".
+ */
+const MATCH_SQL = `(
+  similarity(p.name, t.term) > 0.25
+  OR word_similarity(t.term, p.name) > 0.45
+  OR similarity(p.description, t.term) > 0.3
+  OR word_similarity(t.term, p.description) > 0.55
+  OR similarity(p.category, t.term) > 0.35
+  OR lower(p.name) LIKE '%' || t.term || '%'
+  OR lower(p.description) LIKE '%' || t.term || '%'
+  OR lower(p.category) LIKE '%' || t.term || '%'
+)`;
+
+const SCORE_SQL = `GREATEST(
+  similarity(p.name, t.term),
+  word_similarity(t.term, p.name),
+  similarity(p.description, t.term),
+  word_similarity(t.term, p.description) * 0.9,
+  similarity(p.category, t.term)
+)`;
+
+// Availability for the requested store, and across all stores when no store is given.
+const AVAILABILITY_SQL = `
+  COALESCE((SELECT SUM(ss.stock - ss.reserved) FROM store_stock ss WHERE ss.product_id = p.id), 0) AS available_total,
+  COALESCE((SELECT ss.stock - ss.reserved FROM store_stock ss WHERE ss.product_id = p.id AND ss.store_id = $1), 0) AS available_store`;
+
+function toItem(row, storeId) {
+  const available = Number(storeId === null ? row.available_total : row.available_store);
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    price: Number(row.price),
+    image_url: row.image_url,
+    available,
+    low: storeId === null ? false : available <= row.low_stock_threshold,
+    score: Number(row.score),
+  };
+}
+
+// In-stock in the shopper's city first; falls back to total availability without a store.
+const IN_STOCK_FIRST_SQL = `(CASE WHEN $1::int IS NULL THEN (m.available_total > 0) ELSE (m.available_store > 0) END) DESC`;
+
 const postgresSearch = {
   name: "postgres",
 
-  async search({ q = "", city = null, category = null, minPrice = 0, maxPrice = 1_000_000, limit = 40 }) {
+  async search({ q = "", storeId = null, category = null, minPrice = 0, maxPrice = 1_000_000, limit = 20 }) {
     const { terms, priceSort } = parseQuery(q);
     const priceDirection = priceSort === "desc" ? "DESC" : "ASC";
     const categoryFilter = category || null;
 
     if (terms.length === 0) {
       const { rows } = await pool.query(
-        `SELECT p.id, p.name, p.description, p.category, p.price, p.image_url,
-                p.low_stock_threshold,
-                0::float AS score,
-                COALESCE(SUM(CASE WHEN st.city = $1 THEN ss.stock - ss.reserved ELSE 0 END), 0) AS city_available,
-                COALESCE(SUM(ss.stock - ss.reserved), 0) AS total_available
-         FROM products p
-         JOIN store_stock ss ON ss.product_id = p.id
-         JOIN stores st ON st.id = ss.store_id
-         WHERE ($2::text IS NULL OR p.category = $2)
-           AND p.price >= $3 AND p.price <= $4
-         GROUP BY p.id
-         ORDER BY (COALESCE(SUM(CASE WHEN st.city = $1 THEN ss.stock - ss.reserved ELSE 0 END), 0) > 0) DESC,
-                  p.price ${priceDirection}, p.name ASC
+        `WITH matched AS (
+           SELECT p.id, p.name, p.description, p.category, p.price, p.image_url, p.low_stock_threshold,
+                  0::float AS score,
+                  ${AVAILABILITY_SQL}
+           FROM products p
+           WHERE ($2::text IS NULL OR p.category = $2)
+             AND p.price >= $3 AND p.price <= $4
+         )
+         SELECT m.id, m.name, m.description, m.category, m.price, m.image_url, m.low_stock_threshold,
+                m.score, m.available_total, m.available_store
+         FROM matched m
+         ORDER BY ${IN_STOCK_FIRST_SQL}, m.price ${priceDirection}, m.id ASC
          LIMIT $5`,
-        [city, categoryFilter, minPrice, maxPrice, limit],
+        [storeId, categoryFilter, minPrice, maxPrice, limit],
       );
-      return rows;
+      return rows.map((row) => toItem(row, storeId));
     }
 
+    // The city lookup is the provider's own concern (ranking boost), never the service's.
     const { rows } = await pool.query(
       `WITH matched AS (
          SELECT p.id, p.name, p.description, p.category, p.price, p.image_url, p.low_stock_threshold,
-                MAX(GREATEST(
-                  similarity(p.name, t.term),
-                  word_similarity(t.term, p.description),
-                  similarity(p.category, t.term)
-                )) AS score
+                MAX(${SCORE_SQL}) AS score,
+                ${AVAILABILITY_SQL}
          FROM products p
-         CROSS JOIN unnest($1::text[]) AS t(term)
-         WHERE ($2::text IS NULL OR p.category = $2)
-           AND p.price >= $3 AND p.price <= $4
-           AND (
-             similarity(p.name, t.term) > 0.2
-             OR word_similarity(t.term, p.description) > 0.55
-             OR similarity(p.category, t.term) > 0.3
-             OR lower(p.name) LIKE '%' || lower(t.term) || '%'
-             OR lower(p.category) LIKE '%' || lower(t.term) || '%'
-           )
+         CROSS JOIN unnest($2::text[]) AS t(term)
+         WHERE ($3::text IS NULL OR p.category = $3)
+           AND p.price >= $4 AND p.price <= $5
+           AND ${MATCH_SQL}
          GROUP BY p.id
        )
-       SELECT m.*,
-              COALESCE(SUM(CASE WHEN st.city = $5 THEN ss.stock - ss.reserved ELSE 0 END), 0) AS city_available,
-              COALESCE(SUM(ss.stock - ss.reserved), 0) AS total_available
+       SELECT m.id, m.name, m.description, m.category, m.price, m.image_url, m.low_stock_threshold,
+              m.score, m.available_total, m.available_store
        FROM matched m
-       JOIN store_stock ss ON ss.product_id = m.id
-       JOIN stores st ON st.id = ss.store_id
-       GROUP BY m.id, m.name, m.description, m.category, m.price, m.image_url, m.low_stock_threshold, m.score
-       ORDER BY (COALESCE(SUM(CASE WHEN st.city = $5 THEN ss.stock - ss.reserved ELSE 0 END), 0) > 0) DESC,
-                m.score DESC, m.price ${priceDirection}
+       ORDER BY ${IN_STOCK_FIRST_SQL}, m.score DESC, m.price ${priceDirection}, m.id ASC
        LIMIT $6`,
-      [terms, categoryFilter, minPrice, maxPrice, city, limit],
+      [storeId, terms, categoryFilter, minPrice, maxPrice, limit],
     );
-    return rows;
+    return rows.map((row) => toItem(row, storeId));
   },
+
+  // The products table is the index: no-op.
+  async indexProduct() {},
+  async removeProduct() {},
 };
 
 const opensearchSearch = {
   name: "opensearch",
 
-  async search({ q = "", city = null, category = null, minPrice = 0, maxPrice = 1_000_000, limit = 40 }) {
-    const { terms, priceSort } = parseQuery(q);
-    let client;
-    try {
-      const { Client } = await import("@opensearch-project/opensearch");
-      client = new Client({ node: process.env.OPENSEARCH_URL });
-    } catch {
-      throw new Error(
-        "SEARCH_PROVIDER=opensearch requires the @opensearch-project/opensearch package and OPENSEARCH_URL. Use SEARCH_PROVIDER=postgres for local dev.",
-      );
-    }
+  async search() {
+    // TODO(step: search-index consumer): real OpenSearch query, same item shape.
+    throw new Error("not implemented yet");
+  },
 
-    const must = terms.length
-      ? [{ multi_match: { query: terms.join(" "), fields: ["name^3", "category^2", "description"], fuzziness: "AUTO" } }]
-      : [{ match_all: {} }];
+  async indexProduct() {
+    // TODO(step: search-index consumer): upsert into the products index.
+    throw new Error("not implemented yet");
+  },
 
-    const body = {
-      size: limit,
-      query: {
-        bool: {
-          must,
-          filter: [
-            { range: { price: { gte: minPrice, lte: maxPrice } } },
-            ...(category ? [{ term: { category } }] : []),
-          ],
-        },
-      },
-      sort: [
-        { _script: { type: "number", order: "desc", script: { source: "doc['city_available'].size()>0 && doc['city'].value=='" + (city ?? "") + "' ? 1 : 0" } } },
-        { price: { order: priceSort === "desc" ? "desc" : "asc" } },
-      ],
-    };
-
-    const res = await client.search({ index: "products", body });
-    return res.body.hits.hits.map((hit) => ({ ...hit._source, score: hit._score }));
+  async removeProduct() {
+    // TODO(step: search-index consumer): delete from the products index.
+    throw new Error("not implemented yet");
   },
 };
 

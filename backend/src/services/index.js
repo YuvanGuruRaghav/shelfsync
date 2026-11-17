@@ -1,2 +1,2 @@
-// Placeholder: business logic modules land here.
-export {};
+export * from "./catalogService.js";
+export * from "./searchService.js";

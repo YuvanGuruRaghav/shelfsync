@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 
 import config from "./config.js";
+import apiRoutes from "./routes/index.js";
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.use("/api", apiRoutes);
+
 app.use((req, res) => {
   res.status(404).json({
     error: {
@@ -34,8 +37,10 @@ app.use((req, res) => {
 // Error handler: keeps the `{ error: { code, message } }` contract for every failure.
 app.use((err, _req, res, _next) => {
   const status = Number(err.status ?? err.statusCode ?? 500);
+  // Client errors without an explicit code (e.g. malformed JSON) are BAD_REQUEST, not INTERNAL_ERROR.
+  const fallbackCode = status >= 500 ? "INTERNAL_ERROR" : "BAD_REQUEST";
   const code =
-    typeof err.code === "string" && /^[A-Z][A-Z0-9_]*$/.test(err.code) ? err.code : "INTERNAL_ERROR";
+    typeof err.code === "string" && /^[A-Z][A-Z0-9_]*$/.test(err.code) ? err.code : fallbackCode;
   if (status >= 500) console.error("[api] unhandled error", err);
   res.status(status).json({
     error: {

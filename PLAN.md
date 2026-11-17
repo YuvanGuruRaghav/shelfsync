@@ -37,8 +37,9 @@ Publisher:
   as the `eventId` message header.
 
 Search:
-- `search({ q, storeId, category, minPrice, maxPrice, limit })` : returns ranked product ids with scores
-- `indexProduct(product)` / `removeProduct(id)` : used by the search-index consumer
+- `search({ q, storeId, category, minPrice, maxPrice, limit })` : returns ready-to-serve items in the
+  browse shape plus `score` (section 6). The provider resolves the store's city itself for ranking.
+- `indexProduct(productId)` / `removeProduct(productId)` : used by the search-index consumer
 - `postgres` provider: indexing is a no-op (queries live tables). `opensearch` provider: real index.
 
 ## 3. Database (schema.sql, implemented)
@@ -181,11 +182,11 @@ Cart and checkout require header `X-Session-Id` (client-generated UUID). Admin r
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/health` | `{ ok: true }` |
-| GET | `/api/stores` | list of `{ id, name, city }` |
-| GET | `/api/categories` | list of category names |
-| GET | `/api/products?store_id&category&min_price&max_price&limit&offset` | browse. Each item includes `available`, `low` for the given store |
-| GET | `/api/products/:id?store_id` | product + `available` for the store + `availability` per city |
-| GET | `/api/search?q&store_id&category&min_price&max_price&limit` | ranked results, same item shape as browse plus `score` |
+| GET | `/api/stores` | `[{ id, name, city }]` |
+| GET | `/api/categories` | `["Audio", ...]` — distinct, sorted |
+| GET | `/api/products?store_id&category&min_price&max_price&limit&offset` | browse: `{ items, total, limit, offset }` |
+| GET | `/api/products/:id?store_id` | product + `available` + `low` for the store + `availability` per store |
+| GET | `/api/search?q&store_id&category&min_price&max_price&limit` | `{ items }` — same item shape plus `score` |
 | GET | `/api/cart` | cart with lines, line prices, total, `expires_at` of earliest hold |
 | PUT | `/api/cart/items` | body `{ product_id, qty, store_id }`; `qty` 0 removes. 409 `INSUFFICIENT_STOCK` / `CART_STORE_MISMATCH` |
 | DELETE | `/api/cart/items/:product_id` | remove one line |
@@ -193,6 +194,22 @@ Cart and checkout require header `X-Session-Id` (client-generated UUID). Admin r
 | POST | `/api/checkout` | body `{ customer:{name,email,phone}, fulfilment }`, optional `Idempotency-Key` header. Returns the order. 409 `OUT_OF_STOCK` |
 | GET | `/api/orders/:id` | order + items + status |
 | GET | `/api/stream/stock?store_id` | SSE. Event `stock`, data `{ product_id, store_id, available, low }` |
+
+**Item shape** (browse and search):
+
+```
+{ id, name, description, category, price, image_url, available, low, score? }
+```
+
+- `price` is a JSON number, not a string. `low = available <= products.low_stock_threshold`.
+- With `store_id`: `available = stock - reserved` at that store. Without it: `available` is the total
+  across all stores and `low` is `false`.
+- Browse order: in stock at the store first, then `id`. `limit` defaults to 20 (max 100), `offset` to 0.
+- `GET /api/products/:id` adds `availability: [{ store_id, city, available }]` for every store.
+- Search ranking: text relevance, in-stock-in-the-shopper's-city first; price-intent words (`sasta`)
+  sort cheapest first.
+- Errors: `400 BAD_REQUEST` (bad query params), `400 INVALID_STORE` (unknown `store_id`),
+  `404 PRODUCT_NOT_FOUND`.
 
 ### Admin (`X-Admin-Key`)
 
@@ -321,4 +338,5 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
 - [x] Step 3: Fix pass (`pg`, scripts, `.env`)
 - [x] Step 3b: Corrections (seed guard + open alerts, CORS/404/error middleware, health payload,
       publisher `subscribe` for log + Kafka, config/env for Kafka SASL, PLAN/docs cleanup)
-- [ ] Step 4 onward: not started
+- [x] Step 4: Catalog + search endpoints (`stores`, `categories`, `products`, `search`)
+- [ ] Step 5 onward: not started
