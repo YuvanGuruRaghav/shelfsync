@@ -1,3 +1,4 @@
+import config from "../config.js";
 import { pool, withTransaction } from "./pool.js";
 import { migrate } from "./migrate.js";
 
@@ -70,7 +71,24 @@ function stockFor(productIndex, storeIndex) {
   return hash * 3;
 }
 
+const force = process.argv.includes("--force");
+
+function guardDestructiveSeed() {
+  if (force) return;
+  const reasons = [];
+  if (config.databaseSsl) reasons.push("DATABASE_SSL=true");
+  if (config.nodeEnv === "production") reasons.push("NODE_ENV=production");
+  if (reasons.length === 0) return;
+
+  console.error(
+    `Refusing to seed: this script TRUNCATEs all tables (destructive) and ${reasons.join(" and ")}.\n` +
+      "Re-run with --force if you really mean to wipe this database: npm run seed -- --force",
+  );
+  process.exit(1);
+}
+
 export async function seed() {
+  guardDestructiveSeed();
   await migrate();
 
   await withTransaction(async (client) => {
@@ -101,12 +119,25 @@ export async function seed() {
         );
       }
     }
+
+    // Open an alert for every row already at or below its low-stock threshold.
+    // The partial unique index on OPEN alerts makes this safe on a re-run.
+    await client.query(
+      `INSERT INTO alerts (product_id, store_id, stock_level, status)
+       SELECT ss.product_id, ss.store_id, ss.stock - ss.reserved, 'OPEN'
+       FROM store_stock ss
+       JOIN products p ON p.id = ss.product_id
+       WHERE ss.stock - ss.reserved <= p.low_stock_threshold
+       ON CONFLICT DO NOTHING`,
+    );
   });
 
   const { rows } = await pool.query(
-    "SELECT (SELECT count(*) FROM stores) AS stores, (SELECT count(*) FROM products) AS products, (SELECT count(*) FROM store_stock) AS stock_rows",
+    "SELECT (SELECT count(*) FROM stores) AS stores, (SELECT count(*) FROM products) AS products, (SELECT count(*) FROM store_stock) AS stock_rows, (SELECT count(*) FROM alerts WHERE status = 'OPEN') AS open_alerts",
   );
-  console.log(`Seeded ${rows[0].stores} stores, ${rows[0].products} products, ${rows[0].stock_rows} stock rows.`);
+  console.log(
+    `Seeded ${rows[0].stores} stores, ${rows[0].products} products, ${rows[0].stock_rows} stock rows, ${rows[0].open_alerts} open alerts.`,
+  );
 }
 
 seed()

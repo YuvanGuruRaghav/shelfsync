@@ -17,9 +17,13 @@ export const config = {
   adminKey: process.env.ADMIN_KEY ?? "change-me",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
   kafkaBrokers: (process.env.KAFKA_BROKERS ?? "").split(",").filter(Boolean),
+  kafkaSsl: ["1", "true", "yes"].includes(String(process.env.KAFKA_SSL ?? "false").toLowerCase()),
   kafkaSslCa: process.env.KAFKA_SSL_CA ?? "",
   kafkaSslCert: process.env.KAFKA_SSL_CERT ?? "",
   kafkaSslKey: process.env.KAFKA_SSL_KEY ?? "",
+  kafkaSaslUsername: process.env.KAFKA_SASL_USERNAME ?? "",
+  kafkaSaslPassword: process.env.KAFKA_SASL_PASSWORD ?? "",
+  kafkaSaslMechanism: process.env.KAFKA_SASL_MECHANISM ?? "plain",
   opensearchUrl: process.env.OPENSEARCH_URL ?? "",
   publicApiUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000",
 };

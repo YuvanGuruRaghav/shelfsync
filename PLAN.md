@@ -11,10 +11,10 @@ Tagline: Every shelf, every city, always in sync.
 
 - Frontend: Next.js 15 (App Router) + Tailwind CSS v4, mobile-first, lean pages
 - Backend: Node.js + Express REST API in `/backend`
-- DB: PostgreSQL 16 (local via docker-compose now; Aiven later, only `DATABASE_URL` + SSL change)
+- DB: PostgreSQL 18 (local native install now; Aiven later, only `DATABASE_URL` + SSL change)
 - Events: Kafka later (Aiven). Now: outbox relay with a log provider (same interface)
 - Search: OpenSearch later (Aiven). Now: Postgres `pg_trgm` fuzzy search (same interface)
-- Deploy: Dockerfiles, env-var secrets only, TLS-capable config
+- Deploy: Render (backend) + Vercel (frontend), env-var secrets only, TLS-capable config
 
 ## 2. Architecture
 
@@ -31,10 +31,10 @@ Browser -> routes (thin) -> services (logic) -> db / providers
 
 Publisher:
 - `publish(topic, key, payload, eventId)` : used only by the outbox relay
-- `subscribe(topic, groupId, handler)` : used by consumers; `handler(payload, eventId)` returns a promise
+- `subscribe(topic, groupId, handler)` : used by consumers; `handler({ eventId, topic, key, payload })` returns a promise
 - `log` provider: logs each event, then dispatches in-process to subscribed handlers, so consumers
   work end to end with no Kafka. `kafka` provider: real producer plus consumer groups. `eventId` travels
-  as a message header.
+  as the `eventId` message header.
 
 Search:
 - `search({ q, storeId, category, minPrice, maxPrice, limit })` : returns ranked product ids with scores
@@ -52,7 +52,7 @@ reservations(id, cart_id, product_id, store_id, qty, expires_at, status[ACTIVE|C
 customers(id, name, email, phone)
 orders(id, customer_id, store_id, status[PENDING|CONFIRMED|REJECTED], fulfilment[pickup|delivery], total, created_at)
 order_items(order_id, product_id, qty, price)
-outbox(id, topic, key, payload jsonb, created_at, published_at)
+outbox(id, event_id uuid, topic, key, payload jsonb, created_at, published_at)
 processed_events(consumer, event_id, processed_at)   -- idempotency
 alerts(id, product_id, store_id, stock_level, status[OPEN|RESOLVED], created_at)
 ```
@@ -155,7 +155,9 @@ skip. Consumer names: `notification`, `search-index`, `live-stock`.
 
 ## 5. Events
 
-Envelope: the outbox row `id` is the **event id** (used for idempotency). Kafka message key and payloads:
+Envelope: the outbox row `event_id` (uuid) is the **event id** (used for idempotency and stored in
+`processed_events`). It travels as the `eventId` Kafka message header; the row's bigserial `id` is only a
+storage key. Kafka message key and payloads:
 
 | Topic | Key | Payload |
 |---|---|---|
@@ -232,6 +234,10 @@ ADMIN_KEY=change-me
 CORS_ORIGIN=http://localhost:3000
 # Kafka (Aiven), used when EVENT_PROVIDER=kafka
 # KAFKA_BROKERS=
+# KAFKA_SSL=true
+# KAFKA_SASL_USERNAME=
+# KAFKA_SASL_PASSWORD=
+# KAFKA_SASL_MECHANISM=plain
 # KAFKA_SSL_CA=
 # KAFKA_SSL_CERT=
 # KAFKA_SSL_KEY=
@@ -254,7 +260,7 @@ shelfsync/
   frontend/  (app/, components/, lib/)
   backend/src/ server.js, config.js, routes/, services/, providers/{publisher,search}/,
                consumers/, workers/{outboxRelay,reservationExpiry}.js, db/{pool.js,schema.sql,migrate.js,seed.js}
-  docker-compose.yml, .env.example, .gitignore, README.md, PLAN.md
+  .env.example, .gitignore, README.md, PLAN.md
 ```
 
 `server.js` mounts routes, starts both workers and registers consumers on boot.
@@ -272,13 +278,13 @@ Backend scripts: `dev`, `start`, `migrate`, `seed`, `db:reset`.
 8. Admin endpoints
 9. Frontend `lib/` + home, search, product (with live badges)
 10. Frontend cart, checkout, orders, admin
-11. Dockerfiles + README + Aiven switch (Kafka/OpenSearch providers)
+11. README + Render/Vercel deploy settings (Kafka/OpenSearch providers switched by env vars)
 
 Commit to git after every step.
 
 ## 12. Verification checklist (run after the relevant step)
 
-- Boot: `docker compose up -d`, `npm run migrate`, `npm run seed`, `npm run dev`, `GET /api/health` returns ok.
+- Boot: local PostgreSQL 18 running, `npm run migrate`, `npm run seed`, `npm run dev`, `GET /api/health` returns ok.
 - Concurrency: with stock 1, two simultaneous checkouts (or cart adds) for the same item: exactly one succeeds.
 - Reservation: add to cart, `reserved` goes up; wait past TTL, expiry worker releases it and an
   `inventory.changed` row appears.
@@ -310,7 +316,9 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
 
 ## Progress
 
-- [x] Step 1: Scaffolding (layout, docker-compose, config, frontend bootstrap, providers skeleton)
+- [x] Step 1: Scaffolding (layout, config, frontend bootstrap, providers skeleton)
 - [x] Step 2: Schema + seed (verify against section 3.1 deltas)
 - [x] Step 3: Fix pass (`pg`, scripts, `.env`)
+- [x] Step 3b: Corrections (seed guard + open alerts, CORS/404/error middleware, health payload,
+      publisher `subscribe` for log + Kafka, config/env for Kafka SASL, PLAN/docs cleanup)
 - [ ] Step 4 onward: not started
