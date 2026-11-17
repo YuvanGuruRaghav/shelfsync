@@ -103,9 +103,11 @@ const CART_LOCK_ATTEMPTS = 3;
 
 async function lockOrCreateCart(client, sessionId, storeId) {
   for (let attempt = 1; attempt <= CART_LOCK_ATTEMPTS; attempt += 1) {
+    // Bare ON CONFLICT: carts has both (session_id) and (session_id, store_id) unique
+    // constraints, and a targeted clause would let a race on the composite one raise 23505.
     const inserted = await client.query(
       `INSERT INTO carts (session_id, store_id) VALUES ($1, $2)
-       ON CONFLICT (session_id) DO NOTHING
+       ON CONFLICT DO NOTHING
        RETURNING id, store_id`,
       [sessionId, storeId],
     );

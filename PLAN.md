@@ -61,6 +61,7 @@ alerts(id, product_id, store_id, stock_level, status[OPEN|RESOLVED], created_at)
 ### 3.1 Schema deltas (apply to schema.sql if not already present)
 
 - `orders.idempotency_key text UNIQUE` (nullable)
+- `customers`: UNIQUE index on `lower(email)`, so a customer is upserted once per case-insensitive email
 - `carts`: UNIQUE `(session_id)`, so there is one cart per session
 - `alerts`: partial UNIQUE `(product_id, store_id) WHERE status='OPEN'`
 - `reservations`: UNIQUE `(cart_id, product_id) WHERE status='ACTIVE'`
@@ -178,7 +179,7 @@ Consumers:
 All JSON. Errors: `{ "error": { "code": "OUT_OF_STOCK", "message": "...", "details": {...} } }` with sensible
 HTTP status. `details` is optional: only for status < 500, and only when the endpoint supplies it
 (e.g. `INSUFFICIENT_STOCK` → `{ available }`, `CART_STORE_MISMATCH` → `{ store_id }`).
-Cart routes require header `X-Session-Id`: 8–64 characters of `A-Z a-z 0-9 -`, otherwise
+Cart and checkout routes require header `X-Session-Id`: 8–64 characters of `A-Z a-z 0-9 -`, otherwise
 `400 MISSING_SESSION`. Admin routes require `X-Admin-Key` (must equal env `ADMIN_KEY`).
 
 ### Public
@@ -195,8 +196,8 @@ Cart routes require header `X-Session-Id`: 8–64 characters of `A-Z a-z 0-9 -`,
 | PUT | `/api/cart/items` | body `{ product_id, qty, store_id }`; `qty` 0..20, 0 removes. 409 `INSUFFICIENT_STOCK` / `CART_STORE_MISMATCH` |
 | DELETE | `/api/cart/items/:product_id` | remove one line (same as `PUT` with `qty: 0`, idempotent) |
 | DELETE | `/api/cart` | release every hold and delete the cart (used when switching city); idempotent |
-| POST | `/api/checkout` | body `{ customer:{name,email,phone}, fulfilment }`, optional `Idempotency-Key` header. Returns the order. 409 `OUT_OF_STOCK` |
-| GET | `/api/orders/:id` | order + items + status |
+| POST | `/api/checkout` | body `{ customer:{name,email,phone}, fulfilment }`, optional `Idempotency-Key` header (max 128 chars). Returns the order. 400 `EMPTY_CART`, 409 `OUT_OF_STOCK` |
+| GET | `/api/orders/:id` | the same order shape; 404 `ORDER_NOT_FOUND` |
 | GET | `/api/stream/stock?store_id` | SSE. Event `stock`, data `{ product_id, store_id, available, low }` |
 
 **Item shape** (browse and search):
@@ -231,6 +232,22 @@ Cart routes require header `X-Session-Id`: 8–64 characters of `A-Z a-z 0-9 -`,
 - `expires_at` is the earliest ACTIVE hold, or `null`.
 - `PUT /api/cart/items` is set semantics: `delta = qty - ACTIVE reservation qty` (4.2), so retries are safe.
 - `DELETE /api/cart` returns the empty body above.
+
+**Order response** (`POST /api/checkout` and `GET /api/orders/:id`):
+
+```
+{
+  id, status, fulfilment, total, store_id, city, created_at,
+  customer: { name, email, phone },
+  items: [{ product_id, name, qty, price }]
+}
+```
+
+- `price` and `total` are JSON numbers.
+- `POST /api/checkout` returns 200 for a new order and for an `Idempotency-Key` replay.
+- Errors: `400 BAD_REQUEST` (customer or fulfilment invalid), `400 EMPTY_CART` (no cart, or a cart with no
+  items), `409 OUT_OF_STOCK` with `details { items: [{ product_id, name, available }] }`, and
+  `404 ORDER_NOT_FOUND` for an unknown order id.
 
 ### Admin (`X-Admin-Key`)
 
@@ -297,15 +314,15 @@ search test cases (bluetooth earphones, budget items). Open alerts created for r
 shelfsync/
   frontend/  (app/, components/, lib/)
   backend/src/ server.js, config.js, routes/, consumers/,
-               services/{catalogService,searchService,cartService,inventoryService}.js,
+               services/{catalogService,searchService,cartService,checkoutService,inventoryService}.js,
                providers/{publisher,search}/, workers/{outboxRelay,reservationExpiry}.js,
                db/{pool.js,schema.sql,migrate.js,seed.js}
-  backend/scripts/test-cart.js
+  backend/scripts/{test-cart,test-checkout}.js
   .env.example, .gitignore, README.md, PLAN.md
 ```
 
 `server.js` mounts routes, starts both workers and registers consumers on boot.
-Backend scripts: `dev`, `start`, `migrate`, `seed`, `db:reset`, `test:cart`.
+Backend scripts: `dev`, `start`, `migrate`, `seed`, `db:reset`, `test:cart`, `test:checkout`.
 
 ## 11. Build order (one agent prompt per step)
 
@@ -364,4 +381,5 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
       publisher `subscribe` for log + Kafka, config/env for Kafka SASL, PLAN/docs cleanup)
 - [x] Step 4: Catalog + search endpoints (`stores`, `categories`, `products`, `search`)
 - [x] Step 5: Cart + reservations (4.2)
-- [ ] Step 6 onward: not started
+- [x] Step 6: Checkout + orders + alerts (4.1, 4.3, 6)
+- [ ] Step 7 onward: not started

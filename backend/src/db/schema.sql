@@ -119,6 +119,9 @@ END $$;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key text;
 CREATE UNIQUE INDEX IF NOT EXISTS orders_idempotency_key_key ON orders (idempotency_key);
 
+-- One customer per email, case-insensitive; checkout upserts on this index.
+CREATE UNIQUE INDEX IF NOT EXISTS customers_lower_email_key ON customers (lower(email));
+
 -- Only one OPEN alert per (product, store).
 CREATE UNIQUE INDEX IF NOT EXISTS alerts_open_unique_idx ON alerts (product_id, store_id) WHERE status = 'OPEN';
 
