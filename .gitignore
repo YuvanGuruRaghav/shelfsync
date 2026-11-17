@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# builds
+.next/
+out/
+dist/
+build/
+
+# env files
+.env
+.env.*
+!.env.example
+
+# tooling
+.freebuff/
+.turbo/
+*.log
+.DS_Store
