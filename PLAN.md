@@ -382,4 +382,6 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
 - [x] Step 4: Catalog + search endpoints (`stores`, `categories`, `products`, `search`)
 - [x] Step 5: Cart + reservations (4.2)
 - [x] Step 6: Checkout + orders + alerts (4.1, 4.3, 6)
-- [ ] Step 7 onward: not started
+- [x] Step 7: Workers + publisher provider + consumers + SSE (outbox relay, expiry, notification,
+      search-index, live-stock; `test:events`)
+- [ ] Step 8 onward: not started

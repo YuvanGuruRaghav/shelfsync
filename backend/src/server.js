@@ -2,7 +2,11 @@ import cors from "cors";
 import express from "express";
 
 import config from "./config.js";
+import { registerConsumers } from "./consumers/index.js";
+import { pool } from "./db/pool.js";
 import apiRoutes from "./routes/index.js";
+import { startOutboxRelay } from "./workers/outboxRelay.js";
+import { startReservationExpiry } from "./workers/reservationExpiry.js";
 
 const app = express();
 
@@ -57,6 +61,37 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error });
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`ShelfSync API listening on http://localhost:${config.port}`);
 });
+
+// Workers and consumers start with the server. Each loop catches its own errors, so a
+// failed tick never crashes the process; shutdown stops the timers and the pool.
+const outboxRelay = startOutboxRelay();
+const reservationExpiry = startReservationExpiry();
+
+registerConsumers().catch((err) => {
+  console.error("[consumers] registration failed; the API keeps running", err);
+});
+
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[server] ${signal} received, shutting down`);
+
+  outboxRelay.stop();
+  reservationExpiry.stop();
+
+  const closed = new Promise((resolve) => server.close(resolve));
+  // Long-lived SSE connections would otherwise keep the close pending forever.
+  server.closeAllConnections?.();
+  await closed;
+  await pool.end().catch((err) => console.error("[server] error closing the pool", err));
+
+  process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
