@@ -431,4 +431,5 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
       search-index, live-stock; `test:events`)
 - [x] Step 8: Admin endpoints (`X-Admin-Key` middleware, alerts, events, restock, product edit;
       `test:admin`)
-- [ ] Step 9 onward: not started
+- [x] Step 9: Frontend `lib/` + home, search and product pages (live stock badges)
+- [ ] Step 10 onward: not started
