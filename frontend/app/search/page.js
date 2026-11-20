@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-neutral-500">Loading search…</p>}>
+    <Suspense fallback={<p className="text-sm text-slate-500">Loading search…</p>}>
       <SearchResults />
     </Suspense>
   );

@@ -1,8 +1,7 @@
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
 /** Prices arrive as JSON numbers; this only formats them for display. */

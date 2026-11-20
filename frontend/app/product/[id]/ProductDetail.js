@@ -13,6 +13,7 @@ import useLiveStock from "@/lib/useLiveStock";
 export default function ProductDetail({ productId }) {
   const { store, ready } = useStore();
   const [state, setState] = useState({ loading: true, error: null, product: null });
+  const [qty, setQty] = useState(1);
   const liveStock = useLiveStock(store?.id);
 
   useEffect(() => {
@@ -39,13 +40,13 @@ export default function ProductDetail({ productId }) {
 
   if (!ready || state.loading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="aspect-square animate-pulse rounded-2xl bg-neutral-200" />
-        <div className="flex flex-col gap-3">
-          <div className="h-4 w-24 animate-pulse rounded bg-neutral-200" />
-          <div className="h-8 w-3/4 animate-pulse rounded bg-neutral-200" />
-          <div className="h-6 w-28 animate-pulse rounded bg-neutral-200" />
-          <div className="h-20 animate-pulse rounded bg-neutral-200" />
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
+        <div className="aspect-square animate-pulse rounded-card bg-slate-200" />
+        <div className="flex flex-col gap-4">
+          <div className="h-3 w-24 animate-pulse rounded-pill bg-slate-200" />
+          <div className="h-9 w-3/4 animate-pulse rounded bg-slate-200" />
+          <div className="h-8 w-32 animate-pulse rounded bg-slate-200" />
+          <div className="h-24 animate-pulse rounded-card bg-slate-200" />
         </div>
       </div>
     );
@@ -53,10 +54,10 @@ export default function ProductDetail({ productId }) {
 
   if (state.error || !state.product) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">
-        <p className="font-medium">Could not load this product.</p>
+      <div className="rounded-card border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">
+        <p className="font-semibold">Could not load this product.</p>
         <p className="mt-1">{state.error || "Product not found."}</p>
-        <Link href="/" className="mt-3 inline-block font-medium underline">
+        <Link href="/" className="focus-ring mt-3 inline-block rounded font-semibold underline">
           Back to the shelves
         </Link>
       </div>
@@ -67,44 +68,95 @@ export default function ProductDetail({ productId }) {
   const live = liveStock[product.id];
   const available = live?.available ?? product.available;
   const low = live?.low ?? product.low;
+  const outOfStock = !available || available <= 0;
+  const maxQty = Math.max(1, Math.min(10, available ?? 10));
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="overflow-hidden rounded-2xl border border-neutral-200">
+    <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
+      <div className="card overflow-hidden">
         <ProductImage product={product} />
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{product.category}</p>
-          <h1 className="mt-1 text-2xl font-bold leading-tight text-neutral-900 sm:text-3xl">{product.name}</h1>
+          <p className="text-xs font-semibold uppercase tracking-wider text-accent-700">{product.category}</p>
+          <h1 className="mt-2 text-page-title font-extrabold text-slate-900 sm:text-display">{product.name}</h1>
         </div>
 
-        <p className="text-2xl font-semibold text-neutral-900">{formatPrice(product.price)}</p>
-
-        <div className="min-h-6">
-          <StockBadge available={available} low={low} city={store?.city} className="text-sm" />
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-3xl font-extrabold text-slate-900">{formatPrice(product.price)}</p>
+          <StockBadge available={available} low={low} city={store?.city} />
         </div>
 
-        {product.description && <p className="text-sm leading-relaxed text-neutral-700">{product.description}</p>}
+        {product.description && (
+          <p className="text-sm leading-relaxed text-slate-600">{product.description}</p>
+        )}
 
-        <section aria-labelledby="availability-heading" className="rounded-xl border border-neutral-200 bg-white p-4">
-          <h2 id="availability-heading" className="text-sm font-semibold text-neutral-900">
-            Availability by city
+        <div className="card flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center rounded-pill border border-slate-200 bg-white">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => setQty((value) => Math.max(1, value - 1))}
+                disabled={qty <= 1 || outOfStock}
+                className="focus-ring flex h-11 w-11 items-center justify-center rounded-l-pill text-lg font-semibold text-slate-600 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max={maxQty}
+                value={qty}
+                aria-label="Quantity"
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  setQty(Number.isFinite(next) ? Math.min(maxQty, Math.max(1, next)) : 1);
+                }}
+                className="h-11 w-12 border-x border-slate-200 bg-white text-center text-sm font-semibold text-slate-900 focus-visible:outline-none"
+              />
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => setQty((value) => Math.min(maxQty, value + 1))}
+                disabled={qty >= maxQty || outOfStock}
+                className="focus-ring flex h-11 w-11 items-center justify-center rounded-r-pill text-lg font-semibold text-slate-600 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                +
+              </button>
+            </div>
+
+            <button type="button" disabled={outOfStock} className="btn-primary flex-1 sm:flex-none">
+              {outOfStock ? "Out of stock" : "Add to cart"}
+            </button>
+          </div>
+        </div>
+
+        <section aria-labelledby="availability-heading" className="card p-4">
+          <h2 id="availability-heading" className="text-section font-semibold text-slate-900">
+            Availability in other cities
           </h2>
-          <ul className="mt-2 divide-y divide-neutral-100">
+          <ul className="mt-3 flex flex-wrap gap-2">
             {product.availability?.map((row) => {
               const isSelected = row.store_id === store?.id;
+              const isOut = row.available === 0;
               return (
-                <li
-                  key={row.store_id}
-                  className={`flex items-center justify-between py-2 text-sm ${
-                    isSelected ? "font-medium text-neutral-900" : "text-neutral-600"
-                  }`}
-                >
-                  <span>{row.city}</span>
-                  <span className={row.available === 0 ? "text-red-600" : ""}>
-                    {row.available === 0 ? "Out of stock" : `${row.available} available`}
+                <li key={row.store_id}>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-semibold ${
+                      isSelected
+                        ? "border-accent-500 bg-accent-50 text-accent-800"
+                        : isOut
+                          ? "border-slate-200 bg-slate-50 text-slate-500"
+                          : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
+                    {row.city}
+                    <span className={`font-medium ${isOut ? "text-slate-400" : "text-slate-500"}`}>
+                      {isOut ? "Out of stock" : `${row.available} left`}
+                    </span>
                   </span>
                 </li>
               );

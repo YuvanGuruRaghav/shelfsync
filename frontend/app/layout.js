@@ -1,7 +1,15 @@
+import { Plus_Jakarta_Sans } from "next/font/google";
+
 import "./globals.css";
 
 import Header from "@/components/Header";
 import { StoreProvider } from "@/lib/StoreContext";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export const metadata = {
   title: "ShelfSync",
@@ -11,10 +19,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-neutral-50 text-neutral-900 antialiased">
+      <body className={`${jakarta.variable} min-h-screen bg-canvas font-sans text-slate-900 antialiased`}>
         <StoreProvider>
           <Header />
-          <main className="mx-auto w-full max-w-5xl px-4 py-6">{children}</main>
+          <main className="container-page py-8">{children}</main>
         </StoreProvider>
       </body>
     </html>

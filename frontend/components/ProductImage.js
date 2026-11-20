@@ -20,17 +20,19 @@ export default function ProductImage({ product, className = "" }) {
           alt={product.name}
           loading="lazy"
           onError={() => setFailed(true)}
-          className="h-full w-full object-contain p-3"
+          className="h-full w-full object-contain p-4"
         />
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-neutral-100 px-3 text-center">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-100 px-4 text-center">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl font-semibold text-neutral-500"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-semibold text-slate-500"
           >
             {initial}
           </span>
-          <span className="text-[11px] uppercase tracking-wide text-neutral-500">{product.category}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            {product.category}
+          </span>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import ProductCard from "@/components/ProductCard";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import api from "@/lib/api";
 import { useStore } from "@/lib/StoreContext";
 import useLiveStock from "@/lib/useLiveStock";
@@ -46,37 +47,40 @@ export default function HomeCatalog() {
   return (
     <section aria-labelledby="products-heading">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id="products-heading" className="text-lg font-semibold text-neutral-900">
+        <h2 id="products-heading" className="text-section font-semibold text-slate-900">
           On the shelves{store ? ` in ${store.city}` : ""}
         </h2>
         {!result.loading && !result.error && (
-          <p className="text-xs text-neutral-500">{result.items.length} products</p>
+          <p className="text-sm text-slate-500">{result.items.length} products</p>
         )}
       </div>
 
       {result.loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }, (_, index) => (
-            <div key={index} className="aspect-[3/4] animate-pulse rounded-xl bg-neutral-200" />
+            <ProductCardSkeleton key={index} />
           ))}
         </div>
       )}
 
       {!result.loading && result.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">
-          <p className="font-medium">Could not load products.</p>
+        <div className="rounded-card border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">
+          <p className="font-semibold">Could not load products.</p>
           <p className="mt-1">{result.error}</p>
         </div>
       )}
 
       {!result.loading && !result.error && result.items.length === 0 && (
-        <p className="rounded-xl border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
-          No products are listed for this city yet.
-        </p>
+        <div className="card flex flex-col items-center gap-2 px-6 py-12 text-center">
+          <p className="text-section font-semibold text-slate-900">Nothing on this shelf yet</p>
+          <p className="max-w-sm text-sm text-slate-600">
+            No products are listed for this city. Try another city from the selector above.
+          </p>
+        </div>
       )}
 
       {!result.loading && !result.error && result.items.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {result.items.map((product) => (
             <ProductCard
               key={product.id}
