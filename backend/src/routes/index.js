@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import adminRoutes from "./adminRoutes.js";
 import cartRoutes from "./cartRoutes.js";
 import catalogRoutes from "./catalogRoutes.js";
 import checkoutRoutes from "./checkoutRoutes.js";
@@ -13,5 +14,6 @@ router.use(searchRoutes);
 router.use(cartRoutes);
 router.use(checkoutRoutes);
 router.use(streamRoutes);
+router.use(adminRoutes);
 
 export default router;

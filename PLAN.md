@@ -81,9 +81,11 @@ alerts(id, product_id, store_id, stock_level, status[OPEN|RESOLVED], created_at)
 1. **Oversell-proof checkout.** One transaction does: stock decrement, order + items, reservation
    consumption, outbox rows, alert check. See 4.1.
 2. **Cart reservations (10 min).** Adding or changing a cart line atomically adjusts `reserved`. See 4.2.
-3. **Outbox relay worker.** Polls unpublished outbox rows (`ORDER BY created_at`, `FOR UPDATE SKIP LOCKED`,
-   batch of 50), publishes via the publisher provider, then sets `published_at`. At-least-once delivery,
-   so consumers must be idempotent.
+3. **Outbox relay worker.** Polls unpublished outbox rows (`ORDER BY id`, `FOR UPDATE SKIP LOCKED`,
+   batch of 50), publishes via the publisher provider, then sets `published_at`. `created_at` is the
+   transaction start time, so concurrent transactions on the same key can order it wrongly; `id` is
+   assigned under the stock row lock and keeps per-key order. At-least-once delivery, so consumers
+   must be idempotent.
 4. **Consumers** (idempotent, see 4.4): notification (mock email/SMS log), search-index sync,
    live-stock pusher (SSE).
 5. **Low-stock alerts are SYSTEM-generated** inside the inventory logic, in the same transaction that
@@ -251,12 +253,55 @@ Cart and checkout routes require header `X-Session-Id`: 8–64 characters of `A-
 
 ### Admin (`X-Admin-Key`)
 
+Every `/api/admin/*` route requires header `X-Admin-Key` equal to env `ADMIN_KEY`, compared with
+`crypto.timingSafeEqual`. Missing or wrong key -> `401 UNAUTHORIZED`. If `ADMIN_KEY` is empty, every admin
+request is rejected with `401 UNAUTHORIZED`. The check lives in `routes/requireAdmin.js` (middleware), not in
+the services. The server logs one warning at boot if `ADMIN_KEY` is still `change-me`.
+
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/admin/alerts?status=OPEN` | alerts with product and city names |
 | GET | `/api/admin/events?limit=50` | recent outbox rows with published state (frontend polls every 3s for the live feed) |
 | POST | `/api/admin/stock` | body `{ product_id, store_id, add }`; restocks, writes `inventory.changed` (`RESTOCK`), resolves alerts |
 | PATCH | `/api/admin/products/:id` | edits product fields, writes `product.updated` |
+
+**`GET /api/admin/alerts?status=OPEN`**
+
+- `status` is `OPEN` or `RESOLVED`, default `OPEN`; anything else is `400 BAD_REQUEST`. Newest first.
+- Response: `{ items: [{ id, product_id, product_name, store_id, city, stock_level, status, created_at }] }`.
+
+**`GET /api/admin/events?limit=50`**
+
+- `limit` is an integer from 1 to 200, default 50; otherwise `400 BAD_REQUEST`. Newest first
+  (`ORDER BY id DESC`).
+- Response: `{ items: [{ id, event_id, topic, key, payload, created_at, published_at, published }] }`
+  where `published = published_at is not null`.
+
+**`POST /api/admin/stock`** body `{ product_id, store_id, add }`
+
+- `add` must be an integer from 1 to 10000 (booleans and strings are rejected, as are 0 and negatives),
+  otherwise `400 BAD_REQUEST`.
+- Unknown product -> `404 PRODUCT_NOT_FOUND`. Unknown store -> `400 INVALID_STORE`.
+- One transaction: upsert the `store_stock` row (`stock = stock + add`; create it with `reserved` 0 when
+  missing), then `recordInventoryChange` with reason `RESTOCK` (it writes the `inventory.changed` outbox
+  row and runs the alert check, so open alerts resolve). No provider is called here.
+- Response: `{ product_id, store_id, city, stock, reserved, available, low }`.
+
+**`PATCH /api/admin/products/:id`** body: any of `name`, `description`, `category`, `price`, `image_url`,
+`low_stock_threshold`
+
+- At least one field, no unknown fields, otherwise `400 BAD_REQUEST`. `name`/`category` are non-empty
+  strings, `description` is a string, `price` is a number >= 0 with at most 2 decimals,
+  `low_stock_threshold` is an integer >= 0, `image_url` is a string or `null`. Unknown id ->
+  `404 PRODUCT_NOT_FOUND`.
+- One transaction: lock the product row `FOR UPDATE`, update it, write ONE `product.updated` outbox row
+  (payload per section 5, key = `product_id`). If `low_stock_threshold` changed, run `runAlertCheck` for
+  every `store_stock` row of that product in `store_id` order (alerts open or resolve accordingly).
+- Response: the product `{ id, name, description, category, price, image_url, low_stock_threshold }`
+  (`price` as a JSON number).
+
+Admin errors: `401 UNAUTHORIZED` (missing or wrong `X-Admin-Key`, or `ADMIN_KEY` empty), `400 BAD_REQUEST`,
+`400 INVALID_STORE`, `404 PRODUCT_NOT_FOUND`.
 
 Cart rule: a cart belongs to one store. Adding an item for a different `store_id` than the cart's returns
 409 `CART_STORE_MISMATCH`. The frontend then asks the shopper to clear the cart (`DELETE /api/cart`) and retries.
@@ -384,4 +429,6 @@ Finish by showing the same code running against Aiven Kafka and OpenSearch via e
 - [x] Step 6: Checkout + orders + alerts (4.1, 4.3, 6)
 - [x] Step 7: Workers + publisher provider + consumers + SSE (outbox relay, expiry, notification,
       search-index, live-stock; `test:events`)
-- [ ] Step 8 onward: not started
+- [x] Step 8: Admin endpoints (`X-Admin-Key` middleware, alerts, events, restock, product edit;
+      `test:admin`)
+- [ ] Step 9 onward: not started

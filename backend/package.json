@@ -12,7 +12,8 @@
     "db:reset": "npm run migrate && npm run seed",
     "test:cart": "node scripts/test-cart.js",
     "test:checkout": "node scripts/test-checkout.js",
-    "test:events": "node scripts/test-events.js"
+    "test:events": "node scripts/test-events.js",
+    "test:admin": "node scripts/test-admin.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

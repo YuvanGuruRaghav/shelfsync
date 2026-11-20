@@ -27,7 +27,7 @@ export async function relayBatch(client, publisher) {
     `SELECT id, event_id, topic, key, payload
      FROM outbox
      WHERE published_at IS NULL
-     ORDER BY created_at, id
+     ORDER BY id
      LIMIT $1
      FOR UPDATE SKIP LOCKED`,
     [BATCH_SIZE],

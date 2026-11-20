@@ -10,6 +10,12 @@ import { startReservationExpiry } from "./workers/reservationExpiry.js";
 
 const app = express();
 
+if (config.adminKey === "change-me") {
+  console.warn(
+    '[admin] ADMIN_KEY is still the default "change-me"; set a real key before exposing the API.',
+  );
+}
+
 app.use(
   cors({
     origin: config.corsOrigin,
