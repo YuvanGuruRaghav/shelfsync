@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import ProductImage from "@/components/ProductImage";
 import StockBadge from "@/components/StockBadge";
 import api from "@/lib/api";
 import { formatPrice } from "@/lib/format";
@@ -12,7 +13,6 @@ import useLiveStock from "@/lib/useLiveStock";
 export default function ProductDetail({ productId }) {
   const { store, ready } = useStore();
   const [state, setState] = useState({ loading: true, error: null, product: null });
-  const [imageFailed, setImageFailed] = useState(false);
   const liveStock = useLiveStock(store?.id);
 
   useEffect(() => {
@@ -20,7 +20,6 @@ export default function ProductDetail({ productId }) {
 
     let cancelled = false;
     setState({ loading: true, error: null, product: null });
-    setImageFailed(false);
 
     api
       .getProduct(productId, store ? { store_id: store.id } : {})
@@ -68,23 +67,11 @@ export default function ProductDetail({ productId }) {
   const live = liveStock[product.id];
   const available = live?.available ?? product.available;
   const low = live?.low ?? product.low;
-  const showImage = Boolean(product.image_url) && !imageFailed;
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100">
-        <div className="aspect-square">
-          {showImage ? (
-            <img
-              src={product.image_url}
-              alt={product.name}
-              onError={() => setImageFailed(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">No image</div>
-          )}
-        </div>
+      <div className="overflow-hidden rounded-2xl border border-neutral-200">
+        <ProductImage product={product} />
       </div>
 
       <div className="flex flex-col gap-4">

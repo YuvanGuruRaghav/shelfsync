@@ -1,6 +1,6 @@
+import { readFile } from "node:fs/promises";
+
 import config from "../config.js";
-import { pool, withTransaction } from "./pool.js";
-import { migrate } from "./migrate.js";
 
 /**
  * Dev seed: 5 stores in 5 cities, 40 products across 5 categories,
@@ -15,7 +15,7 @@ const stores = [
   { name: "ShelfSync Banjara Hills", city: "Hyderabad" },
 ];
 
-const products = [
+export const products = [
   // Electronics
   ["Noise-Cancelling Bluetooth Headphones", "Over-ear wireless headphones with 40h battery and active noise cancellation.", "Electronics", 8999, 6],
   ["True Wireless Earbuds Pro", "Bluetooth 5.3 earbuds with ANC, wireless charging case and IPX5 rating.", "Electronics", 4499, 5],
@@ -63,6 +63,23 @@ const products = [
   ["Cricket Bat Kashmir Willow", "Grade-A willow bat with protective toe guard.", "Sports", 3199, 5],
 ];
 
+/** Stable, filesystem-safe key for a product (also the key in product-images.json). */
+export function slugify(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Image paths written by `npm run images:fetch` (one-time script); empty when never run.
+async function loadProductImages() {
+  try {
+    return JSON.parse(await readFile(new URL("./product-images.json", import.meta.url), "utf8"));
+  } catch {
+    return {};
+  }
+}
+
 // Deterministic pseudo-random stock so the seed is reproducible.
 function stockFor(productIndex, storeIndex) {
   const hash = (productIndex * 7 + storeIndex * 13 + 3) % 17;
@@ -89,6 +106,10 @@ function guardDestructiveSeed() {
 
 export async function seed() {
   guardDestructiveSeed();
+  // Imported lazily so `products`/`slugify` can be imported by the image script without a DB.
+  const { pool, withTransaction } = await import("./pool.js");
+  const { migrate } = await import("./migrate.js");
+  const productImages = await loadProductImages();
   await migrate();
 
   await withTransaction(async (client) => {
@@ -105,11 +126,17 @@ export async function seed() {
       storeIds.push(rows[0].id);
     }
 
+    let seedId = 0;
     for (const [name, description, category, price, threshold] of products) {
+      // The seed list order is the product id, so `product-images.json` keys stay stable.
+      seedId += 1;
+      const imageUrl = productImages[slugify(name)] ?? null;
       const { rows } = await client.query(
-        `INSERT INTO products (name, description, category, price, image_url, low_stock_threshold)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [name, description, category, price, null, threshold],
+        `INSERT INTO products (id, name, description, category, price, image_url, low_stock_threshold)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET image_url = EXCLUDED.image_url
+         RETURNING id`,
+        [seedId, name, description, category, price, imageUrl, threshold],
       );
       const productId = rows[0].id;
       for (let s = 0; s < storeIds.length; s += 1) {
@@ -119,6 +146,11 @@ export async function seed() {
         );
       }
     }
+
+    // Ids are inserted explicitly above; keep the serial sequence ahead of them.
+    await client.query(
+      "SELECT setval(pg_get_serial_sequence('products', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM products), 1))",
+    );
 
     // Open an alert for every row already at or below its low-stock threshold.
     // The partial unique index on OPEN alerts makes this safe on a re-run.
@@ -140,10 +172,14 @@ export async function seed() {
   );
 }
 
-seed()
-  .then(() => pool.end())
-  .catch((err) => {
-    console.error(err);
-    pool.end();
-    process.exit(1);
-  });
+// Run only when this file is the entry point, so the product list can be imported safely.
+if (process.argv[1] && process.argv[1].endsWith("seed.js")) {
+  const { pool } = await import("./pool.js");
+  seed()
+    .then(() => pool.end())
+    .catch((err) => {
+      console.error(err);
+      pool.end();
+      process.exit(1);
+    });
+}

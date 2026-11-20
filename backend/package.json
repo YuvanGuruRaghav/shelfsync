@@ -10,6 +10,7 @@
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
     "db:reset": "npm run migrate && npm run seed",
+    "images:fetch": "node scripts/fetch-images.js",
     "test:cart": "node scripts/test-cart.js",
     "test:checkout": "node scripts/test-checkout.js",
     "test:events": "node scripts/test-events.js",
