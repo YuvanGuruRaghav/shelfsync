@@ -1,0 +1,322 @@
+[
+  {
+    "name": "Amazon Echo Plus",
+    "description": "The Amazon Echo Plus is a smart speaker with built-in Alexa voice control. It features premium sound quality and serves as a hub for controlling smart home devices. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 8499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/amazon-echo-plus.webp"
+  },
+  {
+    "name": "Apple Airpods",
+    "description": "The Apple Airpods offer a seamless wireless audio experience. With easy pairing, high-quality sound, and Siri integration, they are perfect for on-the-go listening. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 11049,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-airpods.webp"
+  },
+  {
+    "name": "Apple AirPods Max Silver",
+    "description": "The Apple AirPods Max in Silver are premium over-ear headphones with high-fidelity audio, adaptive EQ, and active noise cancellation. Experience immersive sound in style. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 46749,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-airpods-max-silver.webp"
+  },
+  {
+    "name": "Apple Airpower Wireless Charger",
+    "description": "The Apple AirPower Wireless Charger provides a convenient way to charge your compatible Apple devices wirelessly. Simply place your devices on the charging mat for effortless charging. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 6799,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-airpower-wireless-charger.webp"
+  },
+  {
+    "name": "Apple HomePod Mini Cosmic Grey",
+    "description": "The Apple HomePod Mini in Cosmic Grey is a compact smart speaker that delivers impressive audio and integrates seamlessly with the Apple ecosystem for a smart home experience. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 8499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-homepod-mini-cosmic-grey.webp"
+  },
+  {
+    "name": "Apple iPhone Charger",
+    "description": "The Apple iPhone Charger is a high-quality charger designed for fast and efficient charging of your iPhone. Ensure your device stays powered up and ready to go. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 1699,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-iphone-charger.webp"
+  },
+  {
+    "name": "Apple MagSafe Battery Pack",
+    "description": "The Apple MagSafe Battery Pack is a portable and convenient way to add extra battery life to your MagSafe-compatible iPhone. Attach it magnetically for a secure connection. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 8499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-magsafe-battery-pack.webp"
+  },
+  {
+    "name": "Beats Flex Wireless Earphones",
+    "description": "The Beats Flex Wireless Earphones offer a comfortable and versatile audio experience. With magnetic earbuds and up to 12 hours of battery life, they are ideal for everyday use. Bluetooth wireless audio.",
+    "category": "Audio",
+    "price": 4249,
+    "low_stock_threshold": 5,
+    "image_url": "/products/beats-flex-wireless-earphones.webp"
+  },
+  {
+    "name": "Apple MacBook Pro 14 Inch Space Grey",
+    "description": "The MacBook Pro 14 Inch in Space Grey is a powerful and sleek laptop, featuring Apple's M1 Pro chip for exceptional performance and a stunning Retina display.",
+    "category": "Electronics",
+    "price": 169999,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-macbook-pro-14-inch-space-grey.webp"
+  },
+  {
+    "name": "Apple Watch Series 4 Gold",
+    "description": "The Apple Watch Series 4 in Gold is a stylish and advanced smartwatch with features like heart rate monitoring, fitness tracking, and a beautiful Retina display.",
+    "category": "Electronics",
+    "price": 29749,
+    "low_stock_threshold": 5,
+    "image_url": "/products/apple-watch-series-4-gold.webp"
+  },
+  {
+    "name": "Asus Zenbook Pro Dual Screen Laptop",
+    "description": "The Asus Zenbook Pro Dual Screen Laptop is a high-performance device with dual screens, providing productivity and versatility for creative professionals.",
+    "category": "Electronics",
+    "price": 152999,
+    "low_stock_threshold": 5,
+    "image_url": "/products/asus-zenbook-pro-dual-screen-laptop.webp"
+  },
+  {
+    "name": "iPad Mini 2021 Starlight",
+    "description": "The iPad Mini 2021 in Starlight is a compact and powerful tablet from Apple. Featuring a stunning Retina display, powerful A-series chip, and a sleek design, it offers a premium tablet experience.",
+    "category": "Electronics",
+    "price": 42499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/ipad-mini-2021-starlight.webp"
+  },
+  {
+    "name": "iPhone 12 Silicone Case with MagSafe Plum",
+    "description": "The iPhone 12 Silicone Case with MagSafe in Plum is a stylish and protective case designed for the iPhone 12. It features MagSafe technology for easy attachment of accessories.",
+    "category": "Electronics",
+    "price": 2549,
+    "low_stock_threshold": 5,
+    "image_url": "/products/iphone-12-silicone-case-with-magsafe-plum.webp"
+  },
+  {
+    "name": "iPhone 13 Pro",
+    "description": "The iPhone 13 Pro is a cutting-edge smartphone with a powerful camera system, high-performance chip, and stunning display. It offers advanced features for users who demand top-notch technology.",
+    "category": "Electronics",
+    "price": 93499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/iphone-13-pro.webp"
+  },
+  {
+    "name": "iPhone 5s",
+    "description": "The iPhone 5s is a classic smartphone known for its compact design and advanced features during its release. While it's an older model, it still provides a reliable user experience.",
+    "category": "Electronics",
+    "price": 16999,
+    "low_stock_threshold": 5,
+    "image_url": "/products/iphone-5s.webp"
+  },
+  {
+    "name": "Samsung Galaxy Tab S8 Plus Grey",
+    "description": "The Samsung Galaxy Tab S8 Plus in Grey is a high-performance Android tablet by Samsung. With a large AMOLED display, powerful processor, and S Pen support, it's ideal for productivity and entertainment.",
+    "category": "Electronics",
+    "price": 50999,
+    "low_stock_threshold": 5,
+    "image_url": "/products/samsung-galaxy-tab-s8-plus-grey.webp"
+  },
+  {
+    "name": "Black Sun Glasses",
+    "description": "The Black Sun Glasses are a classic and stylish choice, featuring a sleek black frame and tinted lenses. They provide both UV protection and a fashionable look.",
+    "category": "Fashion",
+    "price": 2549,
+    "low_stock_threshold": 5,
+    "image_url": "/products/black-sun-glasses.webp"
+  },
+  {
+    "name": "Black Women's Gown",
+    "description": "The Black Women's Gown is an elegant and timeless evening gown. With a sleek black design, it's perfect for formal events and special occasions, exuding sophistication and style.",
+    "category": "Fashion",
+    "price": 11049,
+    "low_stock_threshold": 5,
+    "image_url": "/products/black-women-s-gown.webp"
+  },
+  {
+    "name": "Blue & Black Check Shirt",
+    "description": "The Blue & Black Check Shirt is a stylish and comfortable men's shirt featuring a classic check pattern. Made from high-quality fabric, it's suitable for both casual and semi-formal occasions.",
+    "category": "Fashion",
+    "price": 2549,
+    "low_stock_threshold": 5,
+    "image_url": "/products/blue-black-check-shirt.webp"
+  },
+  {
+    "name": "Blue Women's Handbag",
+    "description": "The Blue Women's Handbag is a stylish and spacious accessory for everyday use. With a vibrant blue color and multiple compartments, it combines fashion and functionality.",
+    "category": "Fashion",
+    "price": 4249,
+    "low_stock_threshold": 5,
+    "image_url": "/products/blue-women-s-handbag.webp"
+  },
+  {
+    "name": "Brown Leather Belt Watch",
+    "description": "The Brown Leather Belt Watch is a stylish timepiece with a classic design. Featuring a genuine leather strap and a sleek dial, it adds a touch of sophistication to your look.",
+    "category": "Fashion",
+    "price": 7649,
+    "low_stock_threshold": 5,
+    "image_url": "/products/brown-leather-belt-watch.webp"
+  },
+  {
+    "name": "Corset Leather With Skirt",
+    "description": "The Corset Leather With Skirt is a bold and edgy ensemble that combines a stylish corset with a matching skirt. Ideal for fashion-forward individuals, it makes a statement at any event.",
+    "category": "Fashion",
+    "price": 7649,
+    "low_stock_threshold": 5,
+    "image_url": "/products/corset-leather-with-skirt.webp"
+  },
+  {
+    "name": "Gigabyte Aorus Men Tshirt",
+    "description": "The Gigabyte Aorus Men Tshirt is a cool and casual shirt for gaming enthusiasts. With the Aorus logo and sleek design, it's perfect for expressing your gaming style.",
+    "category": "Fashion",
+    "price": 2124,
+    "low_stock_threshold": 5,
+    "image_url": "/products/gigabyte-aorus-men-tshirt.webp"
+  },
+  {
+    "name": "Nike Air Jordan 1 Red And Black",
+    "description": "The Nike Air Jordan 1 in Red and Black is an iconic basketball sneaker known for its stylish design and high-performance features, making it a favorite among sneaker enthusiasts and athletes.",
+    "category": "Fashion",
+    "price": 12749,
+    "low_stock_threshold": 5,
+    "image_url": "/products/nike-air-jordan-1-red-and-black.webp"
+  },
+  {
+    "name": "Annibale Colombo Bed",
+    "description": "The Annibale Colombo Bed is a luxurious and elegant bed frame, crafted with high-quality materials for a comfortable and stylish bedroom.",
+    "category": "Home",
+    "price": 161499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/annibale-colombo-bed.webp"
+  },
+  {
+    "name": "Annibale Colombo Sofa",
+    "description": "The Annibale Colombo Sofa is a sophisticated and comfortable seating option, featuring exquisite design and premium upholstery for your living room.",
+    "category": "Home",
+    "price": 212499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/annibale-colombo-sofa.webp"
+  },
+  {
+    "name": "Bamboo Spatula",
+    "description": "The Bamboo Spatula is a versatile kitchen tool made from eco-friendly bamboo. Ideal for flipping, stirring, and serving various dishes.",
+    "category": "Home",
+    "price": 679,
+    "low_stock_threshold": 5,
+    "image_url": "/products/bamboo-spatula.webp"
+  },
+  {
+    "name": "Bedside Table African Cherry",
+    "description": "The Bedside Table in African Cherry is a stylish and functional addition to your bedroom, providing convenient storage space and a touch of elegance.",
+    "category": "Home",
+    "price": 25499,
+    "low_stock_threshold": 5,
+    "image_url": "/products/bedside-table-african-cherry.webp"
+  },
+  {
+    "name": "Black Aluminium Cup",
+    "description": "The Black Aluminium Cup is a stylish and durable cup suitable for both hot and cold beverages. Its sleek black design adds a modern touch to your drinkware collection.",
+    "category": "Home",
+    "price": 509,
+    "low_stock_threshold": 5,
+    "image_url": "/products/black-aluminium-cup.webp"
+  },
+  {
+    "name": "Decoration Swing",
+    "description": "The Decoration Swing is a charming addition to your home decor. Crafted with intricate details, it adds a touch of elegance and whimsy to any room.",
+    "category": "Home",
+    "price": 5099,
+    "low_stock_threshold": 5,
+    "image_url": "/products/decoration-swing.webp"
+  },
+  {
+    "name": "Family Tree Photo Frame",
+    "description": "The Family Tree Photo Frame is a sentimental and stylish way to display your cherished family memories. With multiple photo slots, it tells the story of your loved ones.",
+    "category": "Home",
+    "price": 2549,
+    "low_stock_threshold": 5,
+    "image_url": "/products/family-tree-photo-frame.webp"
+  },
+  {
+    "name": "House Showpiece Plant",
+    "description": "The House Showpiece Plant is an artificial plant that brings a touch of nature to your home without the need for maintenance. It adds greenery and style to any space.",
+    "category": "Home",
+    "price": 3399,
+    "low_stock_threshold": 5,
+    "image_url": "/products/house-showpiece-plant.webp"
+  },
+  {
+    "name": "American Football",
+    "description": "The American Football is a classic ball used in American football games. It is designed for throwing and catching, making it an essential piece of equipment for the sport.",
+    "category": "Sports",
+    "price": 1699,
+    "low_stock_threshold": 5,
+    "image_url": "/products/american-football.webp"
+  },
+  {
+    "name": "Baseball Ball",
+    "description": "The Baseball Ball is a standard baseball used in baseball games. It features a durable leather cover and is designed for pitching, hitting, and fielding in the game of baseball.",
+    "category": "Sports",
+    "price": 764,
+    "low_stock_threshold": 5,
+    "image_url": "/products/baseball-ball.webp"
+  },
+  {
+    "name": "Baseball Glove",
+    "description": "The Baseball Glove is a protective glove worn by baseball players. It is designed to catch and field the baseball, providing players with comfort and control during the game.",
+    "category": "Sports",
+    "price": 2124,
+    "low_stock_threshold": 5,
+    "image_url": "/products/baseball-glove.webp"
+  },
+  {
+    "name": "Basketball",
+    "description": "The Basketball is a standard ball used in basketball games. It is designed for dribbling, shooting, and passing in the game of basketball, suitable for both indoor and outdoor play.",
+    "category": "Sports",
+    "price": 1274,
+    "low_stock_threshold": 5,
+    "image_url": "/products/basketball.webp"
+  },
+  {
+    "name": "Basketball Rim",
+    "description": "The Basketball Rim is a sturdy hoop and net assembly mounted on a basketball backboard. It provides a target for shooting and scoring in the game of basketball.",
+    "category": "Sports",
+    "price": 3399,
+    "low_stock_threshold": 5,
+    "image_url": "/products/basketball-rim.webp"
+  },
+  {
+    "name": "Cricket Ball",
+    "description": "The Cricket Ball is a hard leather ball used in the sport of cricket. It is bowled and batted in the game, and its hardness and seam contribute to the dynamics of cricket play.",
+    "category": "Sports",
+    "price": 1104,
+    "low_stock_threshold": 5,
+    "image_url": "/products/cricket-ball.webp"
+  },
+  {
+    "name": "Cricket Bat",
+    "description": "The Cricket Bat is an essential piece of cricket equipment used by batsmen to hit the cricket ball. It is made of wood and comes in various sizes and designs.",
+    "category": "Sports",
+    "price": 2549,
+    "low_stock_threshold": 5,
+    "image_url": "/products/cricket-bat.webp"
+  },
+  {
+    "name": "Cricket Helmet",
+    "description": "The Cricket Helmet is a protective headgear worn by cricket players, especially batsmen and wicketkeepers. It provides protection against fast bowling and bouncers.",
+    "category": "Sports",
+    "price": 3824,
+    "low_stock_threshold": 5,
+    "image_url": "/products/cricket-helmet.webp"
+  }
+]

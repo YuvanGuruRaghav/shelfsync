@@ -352,7 +352,7 @@ frontend: NEXT_PUBLIC_API_URL=http://localhost:4000
 store, some low (at or under threshold), at least one product at 0 in a single city. Names include
 search test cases (bluetooth earphones, budget items). Open alerts created for rows already low.
 `seed.js` is re-runnable without duplicates.
-image_url is a site-relative path like /products/x.webp served from frontend/public; images are fetched once by `npm run images:fetch` and committed.
+Seed products come from `backend/src/db/catalog.json`, generated once by `npm run images:fetch` from DummyJSON; `image_url` is a site-relative path like /products/x.webp with the photos stored in frontend/public and committed.
 
 ## 10. Project structure
 
